@@ -75,13 +75,13 @@ export default function AdminDashboard() {
   const remove = async (id) => { if (confirm(t('ad.confirmDel'))) { await supabase.from('products').delete().eq('id', id); load(); } };
   const setStatus = async (id, status) => {
     if (status === 'Fake' && !confirm('Mark this order as Fake? It will be hidden from the dashboard.')) return;
-    await supabase.from('orders').update({ status }).eq('id', id);
+    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    if (error) { alert('Error: ' + error.message); return; }
     load();
   };
 
   if (!ok) return <p className="py-20 text-center text-gray-500">{t('ad.checking')}</p>;
 
-  // Filter out 'Fake' orders so they vanish from dashboard metrics and order list
   const validOrders = orders.filter((o) => o.status !== 'Fake');
   const pending = validOrders.filter((o) => o.status === 'Pending').length;
   const revenue = validOrders.filter((o) => o.status === 'Delivered').reduce((s, o) => s + Number(o.total), 0);
@@ -155,4 +155,42 @@ export default function AdminDashboard() {
                         <td>{p.in_stock ? t('ad.inStock') : t('ad.out')}</td>
                         <td className="space-x-3 pr-3 text-right">
                           <button onClick={() => edit(p)} className="text-teal"><Pencil size={16} /></button>
-                          <button onClick={() => remove(p.id)} className="text-red-5
+                          <button onClick={() => remove(p.id)} className="text-red-500"><Trash2 size={16} /></button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {tab === 'orders' && (
+          <div className="overflow-x-auto rounded-2xl bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-teal-light text-teal-dark"><tr><th className="p-3">{t('ad.thOrder')}</th><th>{t('ad.thCustomer')}</th><th>{t('ad.thItems')}</th><th>{t('ad.thTotal')}</th><th>{t('ad.thStatus')}</th></tr></thead>
+              <tbody>
+                {validOrders.map((o) => (
+                  <tr key={o.id} className="border-t align-top">
+                    <td className="p-3"><b>{o.order_no}</b><br /><span className="text-xs text-gray-500">{date(o.created_at, true)}</span></td>
+                    <td><b>{o.customer_name}</b><br /><a href={`tel:${o.phone}`} className="text-brand">{o.phone}</a><br /><span className="text-xs text-gray-600">{o.address}</span></td>
+                    <td>{o.items.map((i) => <div key={i.id}>{loc(i, 'title')} × {num(i.qty)}</div>)}</td>
+                    <td><b>{taka(o.total)}</b><br /><span className="text-xs">{t('pay.' + o.payment_method)}{o.payment_ref ? ` (${o.payment_ref})` : ''}</span></td>
+                    <td className="pr-3">
+                      <select value={o.status} onChange={(e) => setStatus(o.id, e.target.value)}
+                        className={`rounded-lg border px-2 py-1 font-semibold ${o.status === 'Delivered' ? 'text-teal' : o.status === 'Shipped' ? 'text-blue-600' : 'text-brand'}`}>
+                        {STATUSES.map((s) => <option key={s} value={s}>{s === 'Fake' ? 'Fake (Hide)' : t('status.' + s)}</option>)}
+                      </select>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {validOrders.length === 0 && <p className="p-6 text-center text-gray-500">{t('ad.noOrders')}</p>}
+          </div>
+        )}
+      </main>
+    </div>
+  );
+}
